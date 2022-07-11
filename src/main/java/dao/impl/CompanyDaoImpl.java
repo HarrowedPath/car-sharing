@@ -8,6 +8,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class CompanyDaoImpl implements CompanyDao {
 
@@ -69,6 +71,26 @@ public class CompanyDaoImpl implements CompanyDao {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public List<Company> getAll() {
+        List<Company> companies = new ArrayList<>();
+        try (
+                Connection connection = DataBaseUtil.getConnection();
+                PreparedStatement preparedStatement = connection.prepareStatement(selectAll);
+                ResultSet resultSet = preparedStatement.executeQuery()
+        ) {
+            while (resultSet.next()) {
+                companies.add(new Company(
+                        resultSet.getInt("ID"),
+                        resultSet.getString("NAME")
+                ));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return companies;
     }
 
 }

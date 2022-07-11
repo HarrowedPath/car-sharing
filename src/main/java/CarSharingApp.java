@@ -1,22 +1,25 @@
-
+import dao.CarDao;
+import dao.CompanyDao;
 import dao.impl.CarDaoImpl;
 import dao.impl.CompanyDaoImpl;
 import domain.Car;
 import domain.Company;
 import util.DataBaseUtil;
 
-import java.util.*;
+import java.util.InputMismatchException;
+import java.util.List;
+import java.util.Scanner;
 
 public class CarSharingApp {
     private static final String JDBC_DRIVER = "org.h2.Driver";
     private static final Scanner SCANNER = new Scanner(System.in);
-    List<Company> companyList = new ArrayList<>();
-    List<Car> carList = new ArrayList<>();
 
-    private static CompanyDaoImpl companyDao;
-    private static CarDaoImpl carDao;
+    private final CompanyDao companyDao;
+    private final CarDao carDao;
 
     public CarSharingApp(String[] args) {
+        companyDao = new CompanyDaoImpl();
+        carDao = new CarDaoImpl();
         DataBaseUtil.setDbUrl(args);
         try {
             Class.forName(JDBC_DRIVER);
@@ -26,13 +29,11 @@ public class CarSharingApp {
     }
 
     public void run() {
-        companyDao = new CompanyDaoImpl();
-        carDao = new CarDaoImpl();
         while (true) {
             System.out.println("1. Log in as a manager");
             System.out.println("0. Exit");
             try {
-                switch (SCANNER.nextInt()) {
+                switch (Integer.parseInt(SCANNER.nextLine())) {
                     case 1:
                         logInAsManager();
                         break;
@@ -52,7 +53,7 @@ public class CarSharingApp {
             System.out.println("2. Create a company");
             System.out.println("0. Back");
             try {
-                switch (SCANNER.nextInt()) {
+                switch (Integer.parseInt(SCANNER.nextLine())) {
                     case 1:
                         companyList();
                         break;
@@ -66,36 +67,37 @@ public class CarSharingApp {
             } catch (InputMismatchException e) {
                 System.out.println("\nPlease enter number 0-2!");
             } catch (IllegalStateException e) {
-                if (!e.getMessage().equals(""))
-                    System.out.println(e.getMessage());
+                System.out.println(e.getMessage());
             }
         }
     }
 
     private void addCompany() {
         System.out.println("\nEnter the company name:");
-        SCANNER.nextLine();
         String companyName = SCANNER.nextLine();
-        System.out.println("The company was created!");
         Company company = new Company(companyName);
-        companyList.add(company);
         companyDao.save(company);
+        System.out.println("The company was created!");
     }
 
     private void companyList() {
-        if (companyList.isEmpty())
+        List<Company> companies = companyDao.getAll();
+        if (companies.isEmpty())
             throw new IllegalStateException("\nThe company list is empty!");
         System.out.println("\nChoose the company:");
-        companyList.forEach(company -> System.out.println(company.getId() + ". " + company.getName()));
+        companies.forEach(company -> System.out.println(company.getId() + ". " + company.getName()));
         System.out.println("0. Back");
-        int userInput = SCANNER.nextInt();
+        int userInput = Integer.parseInt(SCANNER.nextLine());
         if (userInput == 0)
-            throw new IllegalStateException("");
-        companyList.forEach(company -> {
-            if (company.getId() == userInput)
-                companyLogin(companyList.get(userInput-1));
-        });
-
+            return;
+        companies.stream()
+                .filter(c -> c.getId().equals(userInput))
+                .findFirst()
+                .ifPresentOrElse(
+                        this::companyLogin,
+                        () -> {
+                            throw new IllegalArgumentException("Не найдена компания с id: " + userInput);
+                        });
     }
 
     private void companyLogin(Company company) {
@@ -105,12 +107,12 @@ public class CarSharingApp {
             System.out.println("2. Create a car");
             System.out.println("0. Back");
             try {
-                switch (SCANNER.nextInt()) {
+                switch (Integer.parseInt(SCANNER.nextLine())) {
                     case 1:
-                        carList();
+                        carList(company);
                         break;
                     case 2:
-                        addCar();
+                        addCar(company);
                         break;
                     case 0:
                         System.out.println();
@@ -125,20 +127,17 @@ public class CarSharingApp {
         }
     }
 
-    private void carList() {
-        if (carList.isEmpty())
+    private void carList(Company company) {
+        List<Car> cars = carDao.getAllByCompany(company);
+        if (cars.isEmpty())
             throw new IllegalStateException("\nThe car list is empty!");
-        carList.forEach(car -> System.out.println(car.getId() + ". " + car.getName()));
+        cars.forEach(car -> System.out.println(car.getId() + ". " + car.getName()));
     }
 
-    private void addCar() {
+    private void addCar(Company company) {
         System.out.println("\nEnter the car name:");
-        SCANNER.nextLine();
-        String carName = SCANNER.nextLine();
-        System.out.println("The car was added!");
-        Car car = new Car(carName);
-        carList.add(car);
+        Car car = new Car(SCANNER.nextLine(), company);
         carDao.save(car);
-        carDao.printAll();
+        System.out.println("The car was added!");
     }
 }
